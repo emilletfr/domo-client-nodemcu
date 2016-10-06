@@ -6,12 +6,14 @@
 #include <EEPROM.h>
 #include <Arduino.h>  // for type definitions
 
+
+
 IPAddress ip(10, 0, 1, 12);
 IPAddress gateway(10, 0, 1, 1);
 IPAddress subnet(255, 255, 255, 0);
 
 const char* ssid = "Airport Extreme";
-const char* password = "MY_PASSWORD";
+const char* password = "7418529635";
 MDNSResponder mdns;
 
 
@@ -31,39 +33,45 @@ void handleStatus()
 
 void handleClose()
 {
-    server.send(200, "application/json", jsonStatus());
-     digitalWrite(05, LOW); digitalWrite(04, LOW);
-    digitalWrite(05, HIGH); delay(1000); digitalWrite(05, LOW);
-    setStatus(false);
+  setStatus(false);
+  server.send(200, "application/json", jsonStatus());
+  digitalWrite(05, LOW); digitalWrite(04, LOW);
+  digitalWrite(05, HIGH); delay(500); digitalWrite(05, LOW);
+
 }
 
 void handleOpen()
 {
-    server.send(200, "application/json", jsonStatus());
-    digitalWrite(04, LOW); digitalWrite(05, LOW);
-    digitalWrite(04, HIGH); delay(1000); digitalWrite(04, LOW);
-    setStatus(true);
+  setStatus(true);
+  server.send(200, "application/json", jsonStatus());
+  digitalWrite(04, LOW); digitalWrite(05, LOW);
+  digitalWrite(04, HIGH); delay(500); digitalWrite(04, LOW);
+
 }
 
 String jsonStatus ()
 {
-  int statusNumber = getStatus() == true ? 1 : 0;
-  String msg = "[{ \"status\": "; msg += statusNumber; msg += "}]";
+  //int statusNumber = getStatus() == true ? 1 : 0;
+  String msg = "{ \"status\": "; msg += getStatus(); msg += "}";
   return msg;
 }
 
 void setStatus(bool status)
-{ 
+{
   EEPROM.write(0, 0); // clear
   EEPROM.commit();
-  EEPROM.write(0,status == true ? 1: 0); //write
+  EEPROM.write(0, status == true ? 1 : 0); //write
   EEPROM.commit();
 }
 
 bool getStatus()
 {
- String msg = "restored status to : "; if (EEPROM.read(0) == 1) {msg += "1";} else {msg += "0";} Serial.println(msg);
- return EEPROM.read(0) == 1 ? true : false;
+  String msg = "restored status to : "; if (EEPROM.read(0) == 1) {
+    msg += "1";
+  } else {
+    msg += "0";
+  } Serial.println(msg);
+  return EEPROM.read(0) == 1 ? true : false;
 }
 
 void setup(void)
@@ -72,7 +80,7 @@ void setup(void)
   pinMode(04, OUTPUT);
   digitalWrite(05, LOW);
   digitalWrite(04, LOW);
-  
+
   Serial.begin(115200);
   WiFi.config(ip, gateway, subnet);
   WiFi.begin(ssid, password);
@@ -94,13 +102,13 @@ void setup(void)
   server.onNotFound(handleNotFound);
   server.begin();
   Serial.println("HTTP server started");
- 
+
   Serial.printf("Flash chip ID: %d\n", ESP.getFlashChipId());
   Serial.printf("Flash chip size (in bytes): %d\n", ESP.getFlashChipSize());
   Serial.printf("Flash chip speed (in Hz): %d\n", ESP.getFlashChipSpeed());
-  
+
   EEPROM.begin(512);
- // EEPROM.end();
+  // EEPROM.end();
   Serial.printf("status restored to: %d\n", EEPROM.read(0));
 }
 
