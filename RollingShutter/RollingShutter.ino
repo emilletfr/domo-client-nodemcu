@@ -5,15 +5,23 @@
 #include <ESP8266mDNS.h>
 #include <EEPROM.h>
 #include <Arduino.h>  // for type definitions
+#include <SimpleDHT.h>
+
+// for DHT11, 
+//      VCC: 5V or 3V
+//      GND: GND
+//      DATA: 2
+int pinDHT11 = 0;
+SimpleDHT11 dht11;
 
 
 
-IPAddress ip(10, 0, 1, 12);
+IPAddress ip(10, 0, 1, 11);
 IPAddress gateway(10, 0, 1, 1);
 IPAddress subnet(255, 255, 255, 0);
 
 const char* ssid = "Airport Extreme";
-const char* password = "7418529635";
+const char* password = "MY_PASSWORD";
 MDNSResponder mdns;
 
 
@@ -51,8 +59,23 @@ void handleOpen()
 
 String jsonStatus ()
 {
+// read without samples.
+  byte temperature = 0;
+  byte humidity = 0;
+  if (dht11.read(pinDHT11, &temperature, &humidity, NULL)) {
+    Serial.print("Read DHT11 failed.");
+    temperature = 0;
+    humidity = 0;
+  }
+  
+  Serial.print("Sample OK: ");
+  Serial.print((int)temperature); Serial.print(" *C, "); 
+  Serial.print((int)humidity); Serial.println(" %");
+
+
+  
   //int statusNumber = getStatus() == true ? 1 : 0;
-  String msg = "{ \"status\": "; msg += getStatus(); msg += "}";
+  String msg = "{ \"open\": "; msg += getStatus();msg +=", \"temperature\": "; msg += (int)temperature ;msg +=", \"humidity\": "; msg += (int)humidity ; msg += "}";
   return msg;
 }
 
