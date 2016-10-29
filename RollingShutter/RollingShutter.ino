@@ -16,12 +16,12 @@ SimpleDHT11 dht11;
 
 
 
-IPAddress ip(10, 0, 1, 11);
+IPAddress ip(10, 0, 1, 12); // 10.0.1.10 : Salon / 10.0.1.11 : Salle à manger / 10.0.1.12 : Bureau / 10.0.1.13 : Cuisine
 IPAddress gateway(10, 0, 1, 1);
 IPAddress subnet(255, 255, 255, 0);
 
 const char* ssid = "Airport Extreme";
-const char* password = "MY_PASSWORD";
+const char* password = "ENTER WIFI PASSWORD"; // ENTER WIFI PASSWORD !!! 
 MDNSResponder mdns;
 
 
