@@ -16,13 +16,15 @@ SimpleDHT11 dht11;
 
 
 
-IPAddress ip(10, 0, 1, 12); // 10.0.1.10 : Salon / 10.0.1.11 : Salle à manger / 10.0.1.12 : Bureau / 10.0.1.13 : Cuisine
+IPAddress ip(10, 0, 1, 10); // 10.0.1.10 : Salon / 10.0.1.11 : Salle à manger / 10.0.1.12 : Bureau / 10.0.1.13 : Cuisine
 IPAddress gateway(10, 0, 1, 1);
 IPAddress subnet(255, 255, 255, 0);
 
 const char* ssid = "Airport Extreme";
 const char* password = "ENTER WIFI PASSWORD"; // ENTER WIFI PASSWORD !!! 
 MDNSResponder mdns;
+byte temperature = 0;
+byte humidity = 0;
 
 
 ESP8266WebServer server(80);
@@ -60,14 +62,15 @@ void handleOpen()
 String jsonStatus ()
 {
 // read without samples.
-  byte temperature = 0;
-  byte humidity = 0;
+/*
+  temperature = 0;
+  humidity = 0;
   if (dht11.read(pinDHT11, &temperature, &humidity, NULL)) {
     Serial.print("Read DHT11 failed.");
     temperature = 0;
     humidity = 0;
   }
-  
+  */
   Serial.print("Sample OK: ");
   Serial.print((int)temperature); Serial.print(" *C, "); 
   Serial.print((int)humidity); Serial.println(" %");
@@ -138,6 +141,14 @@ void setup(void)
 void loop(void)
 {
   server.handleClient();
+  temperature = 0;
+  humidity = 0;
+  if (dht11.read(pinDHT11, &temperature, &humidity, NULL)) {
+    Serial.print("Read DHT11 failed.");
+    temperature = 0;
+    humidity = 0;
+  }
+  delay(2000);
 }
 
 void handleNotFound()
