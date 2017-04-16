@@ -4,45 +4,35 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 #include <EEPROM.h>
-#include <Arduino.h>  // for type definitions
-#include <Adafruit_Sensor.h>
-#include <DHT.h>
-#include <DHT_U.h>
 
-#define TEMPERATURE_MODULE_OR_VIBRATION_MODULE false
-IPAddress ip(10, 0, 1, 14); // 10.0.1.10 : Salon / 10.0.1.11 : Salle à manger / 10.0.1.12 : Bureau / 10.0.1.13 : Cuisine
+#define TEMPERATURE_MODULE_OR_FORCE_MODULE false
+IPAddress ip(10, 0, 1, 14); // 10.0.1.10 : Salon / 10.0.1.11 : Salle à manger / 10.0.1.12 : Bureau / 10.0.1.13 : Cuisine / / 10.0.1.14 : Chambre
 IPAddress gateway(10, 0, 1, 1);
 IPAddress subnet(255, 255, 255, 0);
 const char* ssid = "Airport Extreme";
 const char* password = "ENTER WIFI PASSWORD"; // ENTER WIFI PASSWORD !!!
 MDNSResponder mdns;
 
-#if TEMPERATURE_MODULE_OR_VIBRATION_MODULE == true
+#if TEMPERATURE_MODULE_OR_FORCE_MODULE == true
+
+#include <Arduino.h>  // for type definitions
+#include <Adafruit_Sensor.h>
+#include <DHT.h>
+#include <DHT_U.h>
 
 #define DHTPIN 0         // Pin which is connected to the DHT sensor.
-// Uncomment the type of sensor in use:
-//#define DHTTYPE           DHT11     // DHT 11
 #define DHTTYPE           DHT22     // DHT 22 (AM2302)
-//#define DHTTYPE           DHT21     // DHT 21 (AM2301)
-// See guide for details on sensor wiring and usage:
-//   https://learn.adafruit.com/dht/overview
 DHT_Unified dht(DHTPIN, DHTTYPE);
-// for DHT11,
-//      VCC: 5V or 3V
-//      GND: GND
-//      DATA: 2
-//int pinDHT11 = 0;
-//SimpleDHT11 dht11;
 float temperature = 0;
 float humidity = 0;
 
 #else
 
-int EP = 0;
-int measurements[60];
-int indexMeasurement = 0;
-long measurementsSumMinute = 0;
-long measurementSeconde = 0;
+int analogPin = A0;    // select the input pin for the potentiometer
+int buttonPin = D7;
+int pressionMin = 0;
+int pressionMax = 0;
+int tareCounter = 0;
 
 #endif
 
@@ -50,7 +40,7 @@ ESP8266WebServer server(80);
 
 void handleStatusForHomebridge()
 {
-  String statusString = getStatus() == true ? "1" : "0";
+  String statusString = getOpen() == true ? "1" : "0";
   server.send(200, "text/plain", statusString);
 }
 
@@ -61,7 +51,7 @@ void handleStatus()
 
 void handleClose()
 {
-  setStatus(false);
+  setOpen(false);
   server.send(200, "application/json", jsonStatus());
   digitalWrite(05, LOW); digitalWrite(04, LOW);
   digitalWrite(05, HIGH); delay(500); digitalWrite(05, LOW);
@@ -70,7 +60,7 @@ void handleClose()
 
 void handleOpen()
 {
-  setStatus(true);
+  setOpen(true);
   server.send(200, "application/json", jsonStatus());
   digitalWrite(04, LOW); digitalWrite(05, LOW);
   digitalWrite(04, HIGH); delay(500); digitalWrite(04, LOW);
@@ -79,20 +69,36 @@ void handleOpen()
 
 String jsonStatus ()
 {
-#if TEMPERATURE_MODULE_OR_VIBRATION_MODULE == true
+#if TEMPERATURE_MODULE_OR_FORCE_MODULE == true
   Serial.print((int)temperature); Serial.print(" *C, ");
   Serial.print((int)humidity); Serial.println(" %");
-  String msg = "{ \"open\": "; msg += getStatus(); msg += ", \"temperature\": "; msg += temperature ; msg += ", \"humidity\": "; msg += humidity ; msg += "}";
+  String msg = "{ \"open\": "; msg += getOpen(); msg += ", \"temperature\": "; msg += temperature ; msg += ", \"humidity\": "; msg += humidity ; msg += "}";
   return msg;
 #else
-  Serial.print("measurementsSumMinute: "); Serial.print(measurementsSumMinute);
-  Serial.print(" - measurementSeconde: "); Serial.println(measurementSeconde);
-  String msg = "{ \"open\": "; msg += getStatus(); msg += ", \"measurementsSumMinute\": "; msg += measurementsSumMinute ; msg += ", \"measurementSeconde\": "; msg += measurementSeconde ; msg += "}";
+  int inBed = 0;
+  if (analogRead(analogPin) > getPressionThreshold()) {
+    inBed = 1;
+  }
+  String msg = "{ \"open\": "; msg += getOpen(); msg += ", \"inBed\": "; msg += inBed ; msg += ", \"pressionThreshold\": "; msg += getPressionThreshold() ; msg += ", \"currentPression\": "; msg += analogRead(analogPin); msg += "}";
   return msg;
+
 #endif
 }
 
-void setStatus(bool status)
+void setPressionThreshold(int status)
+{
+  EEPROM.write(1, 0); EEPROM.write(2, 0); // clear
+  EEPROM.commit();
+  EEPROM.write(1, status / 256); EEPROM.write(2, status % 256); //write
+  EEPROM.commit();
+}
+
+int getPressionThreshold()
+{
+  return EEPROM.read(1) * 256 + EEPROM.read(2);
+}
+
+void setOpen(bool status)
 {
   EEPROM.write(0, 0); // clear
   EEPROM.commit();
@@ -100,9 +106,10 @@ void setStatus(bool status)
   EEPROM.commit();
 }
 
-bool getStatus()
+bool getOpen()
 {
-  String msg = "restored status to : "; if (EEPROM.read(0) == 1) {
+  String msg = "restored status to : ";
+  if (EEPROM.read(0) == 1) {
     msg += "1";
   }
   else {
@@ -114,6 +121,8 @@ bool getStatus()
 
 void setup(void)
 {
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, HIGH);
   pinMode(05, OUTPUT);
   pinMode(04, OUTPUT);
   digitalWrite(05, LOW);
@@ -149,7 +158,7 @@ void setup(void)
   // EEPROM.end();
   Serial.printf("status restored to: %d\n", EEPROM.read(0));
 
-#if TEMPERATURE_MODULE_OR_VIBRATION_MODULE == true
+#if TEMPERATURE_MODULE_OR_FORCE_MODULE == true
   // Initialize device.
   dht.begin();
   Serial.println("DHTxx Unified Sensor Example");
@@ -177,25 +186,16 @@ void setup(void)
   Serial.print  ("Resolution:   "); Serial.print(sensor.resolution); Serial.println("%");
   Serial.println("------------------------------------");
 #else
-  pinMode(EP, INPUT); //set EP input for measurment
-  for (int i = 0; i < 60; i++) {measurements[i] = 0;}
+  pinMode(buttonPin, INPUT);
 #endif
+
 }
 
 void loop(void)
 {
   server.handleClient();
 
-#if TEMPERATURE_MODULE_OR_VIBRATION_MODULE == true
-  /*
-    temperature = 0;
-    humidity = 0;
-    if (dht11.read(pinDHT11, &temperature, &humidity, NULL)) {
-    Serial.print("Read DHT11 failed.");
-    temperature = 0;
-    humidity = 0;
-    }
-  */
+#if TEMPERATURE_MODULE_OR_FORCE_MODULE == true
   temperature = 0;
   humidity = 0;
   // Get temperature event and print its value.
@@ -228,22 +228,33 @@ void loop(void)
   }
   delay(2000);
 #else
-  delay(50);
-  long measurement = pulseIn (EP, HIGH, 1000000); //wait for the pin to get HIGH and returns measurement
-  measurementSeconde = measurement;
-  if (measurement > 0) {
-    delay(1000);
+  int analogValue = analogRead(analogPin);
+  int buttonValue = digitalRead(buttonPin);
+  if (buttonValue == 1 || tareCounter > 0)
+  {
+    if (tareCounter == 0) {
+      pressionMin = analogValue;
+      pressionMax = analogValue;
+    }
+    if (analogValue < pressionMin) {
+      pressionMin = analogValue;
+    }
+    if (analogValue > pressionMax) {
+      pressionMax = analogValue;
+    }
+    tareCounter ++;
+    digitalWrite(LED_BUILTIN, LOW); delay(500);
+    digitalWrite(LED_BUILTIN, HIGH); delay(500);
+    if (tareCounter == 15)
+    {
+      // setPressionThreshold((pressionMax + pressionMin) / 2);
+      setPressionThreshold(pressionMax - 30);
+      tareCounter = 0;
+    }
   }
-  indexMeasurement = indexMeasurement + 1; if (indexMeasurement == 60) {
-    indexMeasurement = 0;
-  }
-  measurements[indexMeasurement] = measurement;
-  measurementsSumMinute = 0;
-  for (int i = 0; i < 60; i++) {
-    measurementsSumMinute = measurementsSumMinute + measurements[i];
-  }
-  Serial.print("measurementsSumMinute: "); Serial.print(measurementsSumMinute);
-  Serial.print(" - measurementSeconde: "); Serial.println(measurementSeconde);
+  Serial.print(" analog value: "); Serial.print(analogValue);
+  Serial.print(" / button value: "); Serial.print(buttonValue);
+  Serial.print(" / analog threshold: "); Serial.println(getPressionThreshold());
 #endif
 }
 

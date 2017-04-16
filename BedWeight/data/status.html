@@ -1,0 +1,47 @@
+<html>
+
+<head>
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+  <script type="text/javascript">
+
+
+
+      google.charts.load('current', {'packages':['gauge']});
+      google.charts.setOnLoadCallback(drawChart);
+      function drawChart() {
+
+        var data = google.visualization.arrayToDataTable([
+          ['Label', 'Value'],
+          ['WIFI', 0]
+        ]);
+
+        var options = {
+          width: 500, height: 500,
+          redFrom: -100, redTo: -85,
+          yellowFrom: -85, yellowTo:-75,
+          greenFrom:-75, greenTo: -50,
+          minorTicks: 10, min:-100, max:-50, animation:{duration:100},
+          majorTicks:[-100,-50]
+        };
+        var chart = new google.visualization.Gauge(document.getElementById('chart_div'));
+        chart.draw(data, options);
+
+        // var connection = new WebSocket('ws://'+location.hostname+':81/', ['arduino']);
+         var connection = new WebSocket('ws://10.0.1.24:81/', ['arduino']);
+         connection.onopen = function () {  connection.send('Connect ' + new Date()); };
+         connection.onerror = function (error) {console.log('WebSocket Error ', error);};
+         connection.onmessage = function (e) {
+         console.log('Server: ', e.data);
+         data.setValue(0, 1, e.data);
+         chart.draw(data, options);
+     }.bind(this);
+
+      }
+    </script>
+</head>
+
+<body>
+  <div id="chart_div" style="width: 500px; height: 500px;"></div>
+</body>
+
+</html>
