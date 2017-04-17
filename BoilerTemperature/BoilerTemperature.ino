@@ -9,7 +9,7 @@ IPAddress ip(10, 0, 1, 25);
 IPAddress gateway(10, 0, 1, 1);
 IPAddress subnet(255, 255, 255, 0);
 const char* ssid = "Airport Extreme";
-const char* password = "ENTER WIFI PASSWORD"; // ENTER WIFI PASSWORD !!!
+const char* password = "7418529635"; // ENTER WIFI PASSWORD !!!
 MDNSResponder mdns;
 ESP8266WebServer server = ESP8266WebServer(80);
 Servo myservo;  // create servo object to control a servo
@@ -18,9 +18,13 @@ Servo myservo;  // create servo object to control a servo
 
 void handleGetTemperature()
 {
+  myservo.attach(5);
+  delay(1000);
   int servoDegres = myservo.read();
+  delay(3000);
+  myservo.detach();
   int boilerTemperature = int( 90.0 - 30.0 * float(servoDegres) / 115.0 );
-  String msg = "[{ \"value\": "; msg += boilerTemperature; msg += "}]";
+  String msg = "{ \"value\": "; msg += boilerTemperature; msg += "}";
   server.send(200, "application/json", msg);
 }
 
@@ -41,9 +45,13 @@ void handleSetTemperature()
       boilerTemperature = 90;
     }
     int servoDegres = int((90.0 - float(boilerTemperature)) * 115.0 / 30.0);
-    String msg = "[{ \"servoDegres\": "; msg += servoDegres; msg += "}]";
+    String msg = "{ \"servoDegres\": "; msg += servoDegres; msg += "}";
     server.send(200, "application/json", msg);
+    myservo.attach(5);
+    delay(1000);
     myservo.write(servoDegres);
+    delay(3000);
+    myservo.detach();
   }
   else
   {
@@ -78,8 +86,11 @@ void setup()
   Serial.printf("Flash chip speed (in Hz): %d\n", ESP.getFlashChipSpeed());
 
   myservo.attach(5);  // attaches the servo on GIO2 to the servo object
+  delay(1000);
   myservo.write(0); // angle 0° -> temperature 90°  -  angle 115° -> temperature 60°
-  delay(60000); // 1mn pour caler le moteur à 90° de temperature de chauffe
+  delay(3000);
+  myservo.detach();
+  delay(30000); // 30s pour caler le moteur à 90° de temperature de chauffe
 }
 
 
