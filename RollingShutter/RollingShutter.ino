@@ -5,15 +5,17 @@
 #include <ESP8266mDNS.h>
 #include <EEPROM.h>
 
-#define TEMPERATURE_MODULE_OR_FORCE_MODULE false
-IPAddress ip(10, 0, 1, 14); // 10.0.1.10 : Salon / 10.0.1.11 : Salle à manger / 10.0.1.12 : Bureau / 10.0.1.13 : Cuisine / / 10.0.1.14 : Chambre
-IPAddress gateway(10, 0, 1, 1);
-IPAddress subnet(255, 255, 255, 0);
-const char* ssid = "Airport Extreme";
-const char* password = "ENTER WIFI PASSWORD"; // ENTER WIFI PASSWORD !!!
-MDNSResponder mdns;
 
-#if TEMPERATURE_MODULE_OR_FORCE_MODULE == true
+//IPAddress ip(10, 0, 1, 14); // 10.0.1.10 : Salon / 10.0.1.11 : Salle à manger / 10.0.1.12 : Bureau / 10.0.1.13 : Cuisine / / 10.0.1.14 : Chambre
+//IPAddress gateway(10, 0, 1, 1);
+//IPAddress subnet(255, 255, 255, 0);
+#define TEMPERATURE_MODULE false
+const char* ssid = "Eric 2.4GHz";
+const char* password = "ENTER WIFI PASSWORD"; // ENTER WIFI PASSWORD !!!
+const char* mdnsName = "kitchen"; // living-room dining-room office kitchen bedroom
+// MDNSResponder mdns;
+
+#if TEMPERATURE_MODULE == true
 
 #include <Arduino.h>  // for type definitions
 #include <Adafruit_Sensor.h>
@@ -23,18 +25,10 @@ MDNSResponder mdns;
 #define DHTPIN 0         // Pin which is connected to the DHT sensor.
 #define DHTTYPE           DHT22     // DHT 22 (AM2302)
 DHT_Unified dht(DHTPIN, DHTTYPE);
-float temperature = 0;
-float humidity = 0;
-
-#else
-
-int analogPin = A0;    // select the input pin for the potentiometer
-int buttonPin = D7;
-int pressionMin = 0;
-int pressionMax = 0;
-int tareCounter = 0;
 
 #endif
+float temperature = 0;
+float humidity = 0;
 
 ESP8266WebServer server(80);
 
@@ -69,20 +63,10 @@ void handleOpen()
 
 String jsonStatus ()
 {
-#if TEMPERATURE_MODULE_OR_FORCE_MODULE == true
   Serial.print((int)temperature); Serial.print(" *C, ");
   Serial.print((int)humidity); Serial.println(" %");
   String msg = "{ \"open\": "; msg += getOpen(); msg += ", \"temperature\": "; msg += temperature ; msg += ", \"humidity\": "; msg += humidity ; msg += "}";
   return msg;
-#else
-  int inBed = 0;
-  if (analogRead(analogPin) > getPressionThreshold()) {
-    inBed = 1;
-  }
-  String msg = "{ \"open\": "; msg += getOpen(); msg += ", \"inBed\": "; msg += inBed ; msg += ", \"pressionThreshold\": "; msg += getPressionThreshold() ; msg += ", \"currentPression\": "; msg += analogRead(analogPin); msg += "}";
-  return msg;
-
-#endif
 }
 
 void setPressionThreshold(int status)
@@ -128,19 +112,25 @@ void setup(void)
   digitalWrite(05, LOW);
   digitalWrite(04, LOW);
 
-  Serial.begin(9600);
-  WiFi.config(ip, gateway, subnet);
+  Serial.begin(115200);
+  
   WiFi.begin(ssid, password);
 
   // Wait for connection
   while (WiFi.status() != WL_CONNECTED) {
-    delay(200);
+    delay(500);
     Serial.print(".");
   }
   Serial.println(""); Serial.print("Connected to "); Serial.println(ssid); Serial.print("IP address: "); Serial.println(WiFi.localIP());
-  if (mdns.begin("esp8266", WiFi.localIP())) {
-    Serial.println("MDNS responder started");
+  
+  if (!MDNS.begin(mdnsName)) {
+    Serial.println("Error setting up MDNS responder!");
+    while (1) {
+      delay(1000);
+    }
   }
+  Serial.println("mDNS responder started");
+  MDNS.addService("http", "tcp", 80);
 
   server.on("/1", handleOpen);
   server.on("/0", handleClose);
@@ -158,7 +148,7 @@ void setup(void)
   // EEPROM.end();
   Serial.printf("status restored to: %d\n", EEPROM.read(0));
 
-#if TEMPERATURE_MODULE_OR_FORCE_MODULE == true
+#if TEMPERATURE_MODULE == true
   // Initialize device.
   dht.begin();
   Serial.println("DHTxx Unified Sensor Example");
@@ -185,8 +175,6 @@ void setup(void)
   Serial.print  ("Min Value:    "); Serial.print(sensor.min_value); Serial.println("%");
   Serial.print  ("Resolution:   "); Serial.print(sensor.resolution); Serial.println("%");
   Serial.println("------------------------------------");
-#else
-  pinMode(buttonPin, INPUT);
 #endif
 
 }
@@ -195,7 +183,7 @@ void loop(void)
 {
   server.handleClient();
 
-#if TEMPERATURE_MODULE_OR_FORCE_MODULE == true
+#if TEMPERATURE_MODULE == true
   temperature = 0;
   humidity = 0;
   // Get temperature event and print its value.
@@ -227,34 +215,6 @@ void loop(void)
     Serial.println("%");
   }
   delay(2000);
-#else
-  int analogValue = analogRead(analogPin);
-  int buttonValue = digitalRead(buttonPin);
-  if (buttonValue == 1 || tareCounter > 0)
-  {
-    if (tareCounter == 0) {
-      pressionMin = analogValue;
-      pressionMax = analogValue;
-    }
-    if (analogValue < pressionMin) {
-      pressionMin = analogValue;
-    }
-    if (analogValue > pressionMax) {
-      pressionMax = analogValue;
-    }
-    tareCounter ++;
-    digitalWrite(LED_BUILTIN, LOW); delay(500);
-    digitalWrite(LED_BUILTIN, HIGH); delay(500);
-    if (tareCounter == 15)
-    {
-      // setPressionThreshold((pressionMax + pressionMin) / 2);
-      setPressionThreshold(pressionMax - 30);
-      tareCounter = 0;
-    }
-  }
-  Serial.print(" analog value: "); Serial.print(analogValue);
-  Serial.print(" / button value: "); Serial.print(buttonValue);
-  Serial.print(" / analog threshold: "); Serial.println(getPressionThreshold());
 #endif
 }
 
