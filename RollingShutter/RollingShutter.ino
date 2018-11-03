@@ -5,15 +5,15 @@
 #include <ESP8266mDNS.h>
 #include <EEPROM.h>
 
-
-//IPAddress ip(10, 0, 1, 14); // 10.0.1.10 : Salon / 10.0.1.11 : Salle à manger / 10.0.1.12 : Bureau / 10.0.1.13 : Cuisine / / 10.0.1.14 : Chambre
-//IPAddress gateway(10, 0, 1, 1);
-//IPAddress subnet(255, 255, 255, 0);
-#define TEMPERATURE_MODULE false
+#define TEMPERATURE_MODULE true
 const char* ssid = "Eric 2.4GHz";
 const char* password = "ENTER WIFI PASSWORD"; // ENTER WIFI PASSWORD !!!
-const char* mdnsName = "kitchen"; // living-room dining-room office kitchen bedroom
-// MDNSResponder mdns;
+const char* mdnsName = "living-room"; // living-room dining-room office kitchen bedroom
+IPAddress ip(192, 168, 8, 50); // "192.168.8.50":"living-room.local" / ".51":"dining-room.local" / ".52":"office.local" /  ".53":"kitchen.local" / ".54":"bedroom.local" 
+IPAddress gateway(192, 168, 8, 1);
+IPAddress subnet(255, 255, 255, 0);
+
+ESP8266WebServer server = ESP8266WebServer(80);
 
 #if TEMPERATURE_MODULE == true
 
@@ -30,7 +30,7 @@ DHT_Unified dht(DHTPIN, DHTTYPE);
 float temperature = 0;
 float humidity = 0;
 
-ESP8266WebServer server(80);
+
 
 void handleStatusForHomebridge()
 {
@@ -114,8 +114,8 @@ void setup(void)
 
   Serial.begin(115200);
   
+  WiFi.config(ip, gateway, subnet);
   WiFi.begin(ssid, password);
-
   // Wait for connection
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);

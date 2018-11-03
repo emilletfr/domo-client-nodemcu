@@ -6,16 +6,14 @@
 #include <EEPROM.h>
 #include <Arduino.h>  // for type definitions
 
-IPAddress ip(10, 0, 1, 15);
-IPAddress gateway(10, 0, 1, 1);
+const char* ssid = "Eric 2.4GHz";
+const char* password = "ENTER WIFI PASSWORD"; // ENTER WIFI PASSWORD !!!
+const char* mdnsName = "boiler-heater-pomp";
+IPAddress ip(192, 168, 8, 56); // "192.168.8.56" : "boiler-heater-pomp.local"
+IPAddress gateway(192, 168, 8, 1);
 IPAddress subnet(255, 255, 255, 0);
 
-const char* ssid = "Airport Extreme";
-const char* password = "MY_PASSWORD";
-MDNSResponder mdns; 
-
-
-ESP8266WebServer server(8015);
+ESP8266WebServer server = ESP8266WebServer(80);
 
 void handleHeaterStatus()
 {
@@ -39,26 +37,23 @@ void handleHeaterOff()
 String heaterJsonStatus ()
 {
   int statusNumber = getHeater() == true ? 1 : 0;
-  String msg = "[{ \"status\": "; msg += statusNumber; msg += "}]";
+  String msg = "{ \"status\": "; msg += statusNumber; msg += "}";
   return msg;
 }
 
 void setHeater(bool status)
 { 
-  EEPROM.write(0, 0); // clear
+  EEPROM.write(2, 0); // clear
   EEPROM.commit();
-  EEPROM.write(0,status == true ? 1: 0); //write
+  EEPROM.write(2,status == true ? 1: 0); //write
   EEPROM.commit();
 }
 
 bool getHeater()
 {
- String msg = "restored status to : "; if (EEPROM.read(0) == 1) {msg += "1";} else {msg += "0";} Serial.println(msg);
- return EEPROM.read(0) == 1 ? true : false;
+ String msg = "restored status to : "; if (EEPROM.read(2) == 1) {msg += "1";} else {msg += "0";} Serial.println(msg);
+ return EEPROM.read(2) == 1 ? true : false;
 }
-
-
-
 
 void handlePompStatus()
 {
@@ -82,22 +77,22 @@ void handlePompOff()
 String pompJsonStatus ()
 {
   int statusNumber = getPomp() == true ? 1 : 0;
-  String msg = "[{ \"status\": "; msg += statusNumber; msg += "}]";
+  String msg = "{ \"status\": "; msg += statusNumber; msg += "}";
   return msg;
 }
 
 void setPomp(bool status)
 { 
-  EEPROM.write(1, 0); // clear
+  EEPROM.write(3, 0); // clear
   EEPROM.commit();
-  EEPROM.write(1,status == true ? 1: 0); //write
+  EEPROM.write(3,status == true ? 1: 0); //write
   EEPROM.commit();
 }
 
 bool getPomp()
 {
- String msg = "restored status to : "; if (EEPROM.read(1) == 1) {msg += "1";} else {msg += "0";} Serial.println(msg);
- return EEPROM.read(1) == 1 ? true : false;
+ String msg = "restored status to : "; if (EEPROM.read(3) == 1) {msg += "1";} else {msg += "0";} Serial.println(msg);
+ return EEPROM.read(3) == 1 ? true : false;
 }
 
 void setup(void)
@@ -110,20 +105,26 @@ void setup(void)
   if (getHeater() == true) {digitalWrite(04, HIGH);} else {digitalWrite(04, LOW);}
   if (getPomp() == true) {digitalWrite(05, HIGH);} else {digitalWrite(05, LOW);}
   
-  
   Serial.begin(115200);
+
   WiFi.config(ip, gateway, subnet);
   WiFi.begin(ssid, password);
 
   // Wait for connection
   while (WiFi.status() != WL_CONNECTED) {
-    delay(200);
+    delay(500);
     Serial.print(".");
   }
   Serial.println(""); Serial.print("Connected to "); Serial.println(ssid); Serial.print("IP address: "); Serial.println(WiFi.localIP());
-  if (mdns.begin("esp8266", WiFi.localIP())) {
-    Serial.println("MDNS responder started");
+  
+  if (!MDNS.begin(mdnsName)) {
+    Serial.println("Error setting up MDNS responder!");
+    while (1) {
+      delay(1000);
+    }
   }
+  Serial.println("mDNS responder started");
+  MDNS.addService("http", "tcp", 80);
 
   server.on("/11", handlePompOn);
   server.on("/10", handlePompOff);
@@ -139,8 +140,6 @@ void setup(void)
   Serial.printf("Flash chip ID: %d\n", ESP.getFlashChipId());
   Serial.printf("Flash chip size (in bytes): %d\n", ESP.getFlashChipSize());
   Serial.printf("Flash chip speed (in Hz): %d\n", ESP.getFlashChipSpeed());
-  
-
 }
 
 void loop(void)

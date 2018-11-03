@@ -7,13 +7,13 @@
 #include <HX711.h>
 #include <WebSocketsServer.h>
 
-const char* mdnsName = "bedroom-bed";
-IPAddress ip(10, 0, 1, 44); //ip(10, 0, 1, 24);
-IPAddress gateway(10, 0, 1, 1);
-IPAddress subnet(255, 255, 255, 0);
-const char* ssid = "Airport Extreme";
+const char* ssid = "Eric 2.4GHz";
 const char* password = "ENTER WIFI PASSWORD"; // ENTER WIFI PASSWORD !!!
-MDNSResponder mdns;
+const char* mdnsName = "bed-occupancy";
+IPAddress ip(192, 168, 8, 55); // "192.168.8.55" : "bed-occupancy.local"
+IPAddress gateway(192, 168, 8, 1);
+IPAddress subnet(255, 255, 255, 0);
+
 ESP8266WebServer server = ESP8266WebServer(80);
 WebSocketsServer webSocket = WebSocketsServer(81);
 HX711 scale;
@@ -96,23 +96,24 @@ void setup(void)
   //pinMode(LED_BUILTIN, OUTPUT);
   //digitalWrite(LED_BUILTIN, HIGH);
   Serial.begin(115200);
+
   WiFi.config(ip, gateway, subnet);
   WiFi.begin(ssid, password);
 
   // Wait for connection
   while (WiFi.status() != WL_CONNECTED) {
-    delay(200);
+    delay(500);
     Serial.print(".");
   }
   Serial.println(""); Serial.print("Connected to "); Serial.println(ssid); Serial.print("IP address: "); Serial.println(WiFi.localIP());
-  /*
-    if (mdns.begin("test", WiFi.localIP())) {
-    Serial.println("MDNS responder started");
+  
+  if (!MDNS.begin(mdnsName)) {
+    Serial.println("Error setting up MDNS responder!");
+    while (1) {
+      delay(1000);
     }
-  */
-  if (MDNS.begin(mdnsName, WiFi.localIP())) {
-    Serial.println("MDNS responder started");
   }
+  Serial.println("mDNS responder started");
 
   // start webSocket server
   webSocket.begin();

@@ -4,17 +4,17 @@
 #include <Arduino.h>  // for type definitions
 #include <Servo.h>
 
+const char* ssid = "Eric 2.4GHz";
+const char* password = "ENTER WIFI PASSWORD"; // ENTER WIFI PASSWORD !!!
 const char* mdnsName = "boiler-temperature";
-IPAddress ip(10, 0, 1, 25);
-IPAddress gateway(10, 0, 1, 1);
+IPAddress ip(192, 168, 8, 57); // "192.168.8.57" : "boiler-temperature.local"
+IPAddress gateway(192, 168, 8, 1);
 IPAddress subnet(255, 255, 255, 0);
-const char* ssid = "Airport Extreme";
-const char* password = "7418529635"; // ENTER WIFI PASSWORD !!!
-MDNSResponder mdns;
+
 ESP8266WebServer server = ESP8266WebServer(80);
+
 Servo myservo;  // create servo object to control a servo
 // twelve servo objects can be created on most boards
-
 
 void handleGetTemperature()
 {
@@ -63,18 +63,25 @@ void handleSetTemperature()
 void setup()
 {
   Serial.begin(115200);
+
   WiFi.config(ip, gateway, subnet);
   WiFi.begin(ssid, password);
-
   // Wait for connection
   while (WiFi.status() != WL_CONNECTED) {
-    delay(200);
+    delay(500);
     Serial.print(".");
   }
   Serial.println(""); Serial.print("Connected to "); Serial.println(ssid); Serial.print("IP address: "); Serial.println(WiFi.localIP());
-  if (mdns.begin("esp8266", WiFi.localIP())) {
-    Serial.println("MDNS responder started");
+  
+  if (!MDNS.begin(mdnsName)) {
+    Serial.println("Error setting up MDNS responder!");
+    while (1) {
+      delay(1000);
+    }
   }
+  Serial.println("mDNS responder started");
+  MDNS.addService("http", "tcp", 80);
+
   server.on("/getTemperature", handleGetTemperature);
   server.on("/setTemperature", handleSetTemperature);
   server.onNotFound(handleNotFound);
